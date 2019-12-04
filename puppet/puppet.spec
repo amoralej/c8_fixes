@@ -104,6 +104,7 @@ Requires:       ruby(shadow)
 Requires:       rubygem(json)
 Requires:       rubygem(pathspec)
 Requires:       rubygem(rgen)
+Requires:       rubygem(multi_json)
 # Prevents jruby from being pulled in by dependencies (BZ #985208)
 Requires:       ruby
 # Pull in ruby selinux bindings where available
