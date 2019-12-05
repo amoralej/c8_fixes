@@ -1,11 +1,12 @@
 %{?python_enable_dependency_generator}
+
 %global srcname networkx
 
 %global with_doc 0
 
 Name:           python-%{srcname}
-Version:        2.4
-Release:        1%{?dist}
+Version:        2.3
+Release:        5%{?dist}
 Summary:        Creates and Manipulates Graphs and Networks
 License:        BSD
 URL:            http://networkx.github.io/
@@ -14,27 +15,41 @@ Source0:        https://github.com/networkx/networkx/archive/%{srcname}-%{versio
 # The parallel betweenness example hangs when executed, possibly due to a
 # function that cannot be pickled.  In any case, skip it.
 Patch0:         %{name}-doc.patch
-# Fix a test that fails on python 3.8 due to reordering of XML attributes.
-Patch1:         %{name}-test.patch
-# Make it work with PyYAML from RHEL8
-Patch2:         0001-Revert-Update-pyyaml-and-fix-yaml.load-input-depreca.patch
+# Fix incorrect uses of the 'is' keyword
+Patch1:         %{name}-is.patch
+# Fix swapped source and target arguments
+# https://github.com/networkx/networkx/commit/ea2c8db07e0047daa649d484c4cf68ec2d9035f7
+Patch2:         %{name}-source-target.patch
+# Fix UnionFind set extraction
+# https://github.com/networkx/networkx/commit/1203164760f7be90d5c3a50ab7ab99f04453af8f
+Patch3:         %{name}-union-find.patch
+# Replace use of deprecated matplotlib.cbook.iterable with np.iterable
+# https://github.com/networkx/networkx/commit/eb3a675c5b2b15e33b0a4a35bcee34d6b81ed94d
+Patch4:         %{name}-cb-iterable.patch
+# Fix the import of Iterable for python 3
+# https://github.com/networkx/networkx/commit/d27930ce099d6f0edca8d5d91d5f3a8d9dc90c9d
+Patch5:         %{name}-iterable.patch
+# Fix iterating over a dictionary when the key names may change
+# https://github.com/networkx/networkx/commit/52e7b5d8732c84512f5423661f234790ce7b1b5f
+Patch6:         %{name}-dict-iteration.patch
+# Make it work with pyyaml in RHEL8
+Patch7:         0001-Revert-Update-pyyaml-and-fix-yaml.load-input-depreca.patch
 
 BuildArch:      noarch
 
-BuildRequires:  pkgconfig(python3)
-BuildRequires:  python3-docs
+BuildRequires:  python3-devel
 BuildRequires:  python3dist(decorator)
 # amoralej - gdal is not available in el8 and it's not needed in OpenStack
 #BuildRequires:  python3dist(gdal)
 BuildRequires:  python3dist(lxml)
 BuildRequires:  python3dist(matplotlib)
+BuildRequires:  python3dist(nose)
+#BuildRequires:  python3dist(nose-ignore-docstring)
 BuildRequires:  python3dist(numpy)
 BuildRequires:  python3dist(pandas)
 BuildRequires:  python3dist(pillow)
 BuildRequires:  python3dist(pydot)
 BuildRequires:  python3dist(pygraphviz)
-BuildRequires:  python3dist(pytest)
-BuildRequires:  python3dist(pytest-cov)
 BuildRequires:  python3dist(pyyaml)
 BuildRequires:  python3dist(scipy)
 BuildRequires:  python3dist(setuptools)
@@ -51,8 +66,6 @@ BuildRequires:  python3dist(texext)
 BuildRequires:  tex(latex)
 BuildRequires:  tex-preview
 %endif
-
-# Documentation
 
 %description
 NetworkX is a Python package for the creation, manipulation, and
@@ -102,12 +115,7 @@ study of the structure, dynamics, and functions of complex networks.
 %if 0%{?with_doc}
 %package doc
 Summary:        Documentation for networkx
-Requires:       fontawesome-fonts-web
-Requires:       font(fontawesome)
-Requires:       font(lato)
-Requires:       font(robotoslab)
 Provides:       bundled(jquery)
-Provides:       bundled(js-underscore)
 
 %description doc
 Documentation for networkx
@@ -118,41 +126,19 @@ Documentation for networkx
 
 # Do not use env
 for f in $(grep -FRl %{_bindir}/env .); do
-  sed -e 's,%{_bindir}/env python[[:digit:]]*,%{__python3},' \
+  sed -e 's,%{_bindir}/env python,%{__python3},' \
       -e 's,%{_bindir}/env ,%{_bindir},' \
       -i.orig $f
   touch -r $f.orig $f
   rm $f.orig
 done
 
-# Use local objects.inv for intersphinx
-sed -e "s|'https://docs\.python\.org/2/': None|'https://docs.python.org/': '%{_docdir}/python3-docs/html/objects.inv'|" \
-    -e "s|\('https://docs\.scipy\.org/doc/numpy/': \)None|\1'%{_docdir}/python3-numpy-doc/objects.inv'|" \
-    -i doc/conf.py
-
 %build
 %py3_build
-
 
 %if 0%{?with_doc}
 # Build the documentation
 PYTHONPATH=$PWD/build/lib make -C doc html
-rst2html --no-datestamp README.rst README.html
-
-# Do not bundle fonts into the documentation
-cd doc/build/html/_static/fonts
-for suffix in eot svg ttf woff woff2; do
-  rm fontawesome-webfont.$suffix
-  ln -s %{_datadir}/fonts/fontawesome/fontawesome-webfont.$suffix .
-done
-rm {Lato,RobotoSlab}/*.ttf
-ln -s %{_datadir}/fonts/lato/Lato-Bold.ttf Lato/lato-bold.ttf
-ln -s %{_datadir}/fonts/lato/Lato-BoldItalic.ttf Lato/lato-bolditalic.ttf
-ln -s %{_datadir}/fonts/lato/Lato-Italic.ttf Lato/lato-italic.ttf
-ln -s %{_datadir}/fonts/lato/Lato-Regular.ttf Lato/lato-regular.ttf
-ln -s %{_datadir}/fonts/google-roboto-slab/RobotoSlab-Bold.ttf RobotoSlab/roboto-slab-v7-bold.ttf
-ln -s %{_datadir}/fonts/google-roboto-slab/RobotoSlab-Regular.ttf RobotoSlab/roboto-slab-v7-regular.ttf
-cd -
 %endif
 
 %install
@@ -173,28 +159,24 @@ done
 # The tests have shebangs, so mark them as executable
 grep -rlZ '^#!' %{buildroot}%{python3_sitelib}/networkx | xargs -0 chmod a+x
 
-%check
-pytest
+# Temporarily disabled until a bug in graphviz > 2.38 is fixed that causes
+# multigraphs to not work.  (Adding the same edge with multiple keys yields
+# only the initial edge; see bz 1703571).  This is slated to be fixed in
+# graphviz 2.42.  Once that is built for Fedora, we can reenable the tests.
+#%check
+#nosetests-3 -v
 
 %files -n python3-networkx
-%doc README.html installed-docs/*
+%doc README.rst installed-docs/*
 %license LICENSE.txt
 %{python3_sitelib}/networkx*
 
-%if 0%{?with_doc}
+%if %{?with_doc}
 %files doc
 %doc doc/build/html/*
 %endif
 
 %changelog
-* Mon Nov  4 2019 Jerry James <loganjerry@gmail.com> - 2.4-1
-- New upstream version
-- Drop upstreamed patches: -is, -source-target, -union-find, -cb-iterable,
-  -iterable, and -dict-iteration
-- Unbundle fonts from the documentation
-- Reenable the tests
-- Add -test patch
-
 * Wed Sep 11 2019 Jerry James <loganjerry@gmail.com> - 2.3-5
 - Add -doc patch to fix building the gallery of examples
 - Add -is patch to reduce noise in sagemath
