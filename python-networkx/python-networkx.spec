@@ -15,6 +15,8 @@ Source0:        https://github.com/networkx/networkx/archive/%{srcname}-%{versio
 Patch0:         %{name}-doc.patch
 # Fix a test that fails on python 3.8 due to reordering of XML attributes.
 Patch1:         %{name}-test.patch
+# Make it work with PyYAML from RHEL8
+Patch2:         0001-Revert-Update-pyyaml-and-fix-yaml.load-input-depreca.patch
 
 BuildArch:      noarch
 

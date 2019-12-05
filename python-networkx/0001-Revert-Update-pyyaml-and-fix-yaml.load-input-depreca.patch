@@ -1,0 +1,21 @@
+--- requirements/extras.txt.ori	2019-12-05 14:22:10.432035705 +0100
++++ requirements/extras.txt	2019-12-05 14:22:28.469074846 +0100
+@@ -4,6 +4,6 @@
+ matplotlib>=3.0.2
+ pygraphviz>=1.5
+ pydot>=1.2.4
+-pyyaml>=5.1
++pyyaml>=3.12
+ lxml>=4.2.3
+ gdal==1.10.0
+--- networkx/readwrite/nx_yaml.py.ori	2019-12-05 14:22:02.402018279 +0100
++++ networkx/readwrite/nx_yaml.py	2019-12-05 14:22:45.758112364 +0100
+@@ -96,7 +96,7 @@
+     except ImportError:
+         raise ImportError("read_yaml() requires PyYAML: http://pyyaml.org/")
+ 
+-    G = yaml.load(path, Loader=yaml.FullLoader)
++    G = yaml.load(path)
+     return G
+ 
+ 
