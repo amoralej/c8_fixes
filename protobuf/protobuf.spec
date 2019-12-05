@@ -3,6 +3,7 @@
 %if 0%{?fedora} || 0%{?rhel} > 7
 %bcond_without python3
 %bcond_with java
+%bcond_with python
 %else
 # Do not build python3 subpackage on EL7
 %bcond_with python3
